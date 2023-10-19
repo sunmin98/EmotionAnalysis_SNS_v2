@@ -1,5 +1,6 @@
 # EmotionAnalysis_SNS_v2
 
+SNS_데이터_고도화/02.라벨링데이터/SAMPLE_JSON_DATA는 AI-HUB에서 다운받은 원본 Json파일입니다, Json파일에서 추출한 csv파일은 용량문제로 카카오워크에 업로드 하였습니다. 
 
 IMSTA_PACKAGE폴더는 인스타 크롤링 할때 사용하는 패키지 "Instaloader"를 제가 직접 수정하였기 때문에 따로 구별하였습니다.
 
