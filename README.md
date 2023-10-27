@@ -8,4 +8,6 @@ Json_PreProcessing폴더는 Json파일에서 원하는 텍스트 문구를 추�
 
 "Determining_Activity.ipynb"는 csv를 학습하고 예측하는 활동,비활동 감정분석 파일입니다.
 
-"Sns_crawling.py,Sns_crawling.ipynb" 인스타 게시물을 크롤링 하는 파일입니다 하지만 현재 수정사항이 생겨 작동하지는 않고있습니다.
+"Sns_Crawling.py" 인스타 게시물을 크롤링 하는 파일입니다.
+
+"main" 파일은 기능을 구현한 파일들을 합쳐서 인스타 닉네임을 입력하게되면 사용자의 텍스트분석으로 활동성,비활동성을 판단 합니다.
