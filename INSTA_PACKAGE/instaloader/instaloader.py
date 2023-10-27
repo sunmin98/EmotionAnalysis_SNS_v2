@@ -1,4 +1,3 @@
-import csv
 import getpass
 import json
 import os
@@ -26,8 +25,6 @@ from .nodeiterator import NodeIterator, resumable_iteration
 from .sectioniterator import SectionIterator
 from .structures import (Hashtag, Highlight, JsonExportable, Post, PostLocation, Profile, Story, StoryItem,
 						 load_structure_from_file, save_structure_to_file, PostSidecarNode, TitlePic)
-
-import copy
 
 
 def _get_config_dir() -> str:
@@ -216,9 +213,6 @@ class Instaloader:
 	"""
 
 	def __init__(self,
-				 # !!! 김선민
-				 txtdata_list: List[str] = None,
-
 				 sleep: bool = True,
 				 quiet: bool = False,
 				 user_agent: Optional[str] = None,
@@ -244,7 +238,6 @@ class Instaloader:
 				 title_pattern: Optional[str] = None,
 				 sanitize_paths: bool = False):
 
-		self.txtdata_list = txtdata_list
 		self.context = InstaloaderContext(sleep, quiet, user_agent, max_connection_attempts,
 										  request_timeout, rate_controller, fatal_status_codes,
 										  iphone_support)
@@ -495,10 +488,9 @@ class Instaloader:
 			fio.write(caption)
 		os.utime(filename, (datetime.now().timestamp(), mtime.timestamp()))
 
-	def save_location(self, filename: str, location: PostLocation, mtime: datetime, ) -> None:
+	def save_location(self, filename: str, location: PostLocation, mtime: datetime) -> None:
 		"""Save post location name and Google Maps link."""
 		filename += '_location.txt'
-
 		if location.lat is not None and location.lng is not None:
 			location_string = (location.name + "\n" +
 							   "https://maps.google.com/maps?q={0},{1}&ll={0},{1}\n".format(location.lat,
@@ -506,13 +498,9 @@ class Instaloader:
 		else:
 			location_string = location.name
 		with open(filename, 'wb') as text_file:
-
 			with BytesIO(location_string.encode()) as bio:
 				shutil.copyfileobj(cast(IO, bio), text_file)
 		os.utime(filename, (datetime.now().timestamp(), mtime.timestamp()))
-
-		self.txtdata_list.append(mtime.timestamp(), text_file)
-
 		self.context.log('geo', end=' ', flush=True)
 
 	def format_filename_within_target_path(self,
@@ -698,7 +686,7 @@ class Instaloader:
 		.. versionadded:: 4.1"""
 		return _PostPathFormatter(item, self.sanitize_paths).format(self.filename_pattern, target=target)
 
-	def download_post(self, post: Post, target: Union[str, Path], txt_list) -> bool:
+	def download_post(self, post: Post, target: Union[str, Path], txt_list: list) -> bool:
 		"""
 		Download everything associated with one instagram post node, i.e. picture, caption and video.
 
@@ -732,11 +720,8 @@ class Instaloader:
 		filename_template = os.path.join(dirname, self.format_filename(post, target=target))
 		filename = self.__prepare_filename(filename_template, lambda: post.url)
 
-		# !!!날짜부분
-		# txt_list.append(filename)
-
 		# Download the image(s) / video thumbnail and videos within sidecars if desired
-		downloaded = True
+		downloaded = False
 		if post.typename == 'GraphSidecar':
 			if self.download_pictures or self.download_videos:
 				if not _all_already_downloaded(
@@ -753,20 +738,21 @@ class Instaloader:
 						suffix: Optional[str] = str(edge_number)
 						if '{filename}' in self.filename_pattern:
 							suffix = None
-						if self.download_pictures and (not sidecar_node.is_video or self.download_video_thumbnails):
-							# pylint:disable=cell-var-from-loop
-							sidecar_filename = self.__prepare_filename(filename_template,
-																	   lambda: sidecar_node.display_url)
-							# Download sidecar picture or video thumbnail (--no-pictures implies --no-video-thumbnails)
-							downloaded &= self.download_pic(filename=sidecar_filename, url=sidecar_node.display_url,
-															mtime=post.date_local, filename_suffix=suffix)
-						if sidecar_node.is_video and self.download_videos:
-							# pylint:disable=cell-var-from-loop
-							sidecar_filename = self.__prepare_filename(filename_template,
-																	   lambda: sidecar_node.video_url)
-							# Download sidecar video if desired
-							downloaded &= self.download_pic(filename=sidecar_filename, url=sidecar_node.video_url,
-															mtime=post.date_local, filename_suffix=suffix)
+				# !!! 수정 이미지 저장 X
+				# if self.download_pictures and (not sidecar_node.is_video or self.download_video_thumbnails):
+				#     # pylint:disable=cell-var-from-loop
+				#     sidecar_filename = self.__prepare_filename(filename_template,
+				#                                                lambda: sidecar_node.display_url)
+				#     # Download sidecar picture or video thumbnail (--no-pictures implies --no-video-thumbnails)
+				#     downloaded &= self.download_pic(filename=sidecar_filename, url=sidecar_node.display_url,
+				#                                     mtime=post.date_local, filename_suffix=suffix)
+				# if sidecar_node.is_video and self.download_videos:
+				#     # pylint:disable=cell-var-from-loop
+				#     sidecar_filename = self.__prepare_filename(filename_template,
+				#                                                lambda: sidecar_node.video_url)
+				#     # Download sidecar video if desired
+				#     downloaded &= self.download_pic(filename=sidecar_filename, url=sidecar_node.video_url,
+				#                                     mtime=post.date_local, filename_suffix=suffix)
 				else:
 					downloaded = False
 		elif post.typename == 'GraphImage':
@@ -786,12 +772,11 @@ class Instaloader:
 		# Save caption if desired
 		metadata_string = _ArbitraryItemFormatter(post).format(self.post_metadata_txt_pattern).strip()
 
-		# !!! 여기다 김선민 !!!
 		txt_list.append(metadata_string)
-		# !!!
+		# print("\ntxt_list4 -> ", txt_list)
 
-		if metadata_string:
-			self.save_caption(filename=filename, mtime=post.date_local, caption=metadata_string)
+		# if metadata_string:
+		# 	self.save_caption(filename=filename, mtime=post.date_local, caption=metadata_string)
 
 		# Download video if desired
 		if post.is_video and self.download_videos:
@@ -806,13 +791,13 @@ class Instaloader:
 		if self.download_comments:
 			self.update_comments(filename=filename, post=post)
 
-		# !!! 김선민 수정 9/14
-		# Save metadata as JSON if desired.
+		# !!! 수정
+		# # Save metadata as JSON if desired.
 		# if self.save_metadata:
 		#     self.save_metadata_json(filename, post)
 
 		self.context.log()
-		return downloaded, txt_list
+		return downloaded
 
 	@_requires_login
 	def get_stories(self, userids: Optional[List[int]] = None) -> Iterator[Story]:
@@ -1011,17 +996,10 @@ class Instaloader:
 					if fast_update and not downloaded:
 						break
 
-	def posts_download_loop(self,
-							profile_name: str,
-							txt_list: List[str],
-							posts: Iterator[Post],
-							target: Union[str, Path],
-							fast_update: bool = False,
-							post_filter: Optional[Callable[[Post], bool]] = None,
-							max_count: Optional[int] = None,
-							total_count: Optional[int] = None,
-							owner_profile: Optional[Profile] = None,
-							takewhile: Optional[Callable[[Post], bool]] = None) -> None:
+	def posts_download_loop(self, posts: Iterator[Post], target: Union[str, Path], fast_update: bool = False,
+							post_filter: Optional[Callable[[Post], bool]] = None, max_count: Optional[int] = None,
+							total_count: Optional[int] = None, owner_profile: Optional[Profile] = None,
+							takewhile: Optional[Callable[[Post], bool]] = None, txt_list: list = None) -> None:
 		"""
 		Download the Posts returned by given Post Iterator.
 
@@ -1042,9 +1020,6 @@ class Instaloader:
 		:param owner_profile: Associated profile, if any.
 		:param takewhile: Expression evaluated for each post. Once it returns false, downloading stops.
 		"""
-
-		txt_list = txt_list
-
 		displayed_count = (max_count if total_count is None or max_count is not None and max_count < total_count
 						   else total_count)
 		sanitized_target = target
@@ -1095,25 +1070,15 @@ class Instaloader:
 					while True:
 						try:
 							downloaded = self.download_post(post, target=target, txt_list=txt_list)
-							print(downloaded, "posts downloads")
-							print(txt_list, "	list 값")
-
+							# print("\ntxt_list3 ", txt_list)
 							break
 						except PostChangedException:
 							post_changed = True
 							continue
-
 					if fast_update and not downloaded and not post_changed and not post.is_pinned:
 						# disengage fast_update for first post when resuming
 						if not is_resuming or number > 0:
 							break
-
-					# !!!
-					with open("{}.csv".format(profile.username), "w", newline='') as csv_file:
-						csv_writer = csv.writer(csv_file, delimiter=',')
-						# 문자열을 언더스코어(_)를 기준으로 분할하여 리스트로 만듭니다.
-						csv_writer.writerow(txt_list)
-					return txt_list
 
 	@_requires_login
 	def get_feed_posts(self) -> Iterator[Post]:
@@ -1407,26 +1372,26 @@ class Instaloader:
 						f"Warning: Profile {profile_name} could not be retrieved by its name, but by its ID.")
 					return profile_from_id
 				self.context.error("Profile {0} has changed its name to {1}.".format(profile_name, newname))
-				if latest_stamps is None:
-					if ((format_string_contains_key(self.dirname_pattern, 'profile') or
-						 format_string_contains_key(self.dirname_pattern, 'target'))):
-						os.rename(self.dirname_pattern.format(profile=profile_name.lower(),
-															  target=profile_name.lower()),
-								  self.dirname_pattern.format(profile=newname.lower(),
-															  target=newname.lower()))
-					else:
-						os.rename('{0}/{1}_id'.format(self.dirname_pattern.format(), profile_name.lower()),
-								  '{0}/{1}_id'.format(self.dirname_pattern.format(), newname.lower()))
-				else:
-					latest_stamps.rename_profile(profile_name, newname)
+				# if latest_stamps is None:
+				# 	if ((format_string_contains_key(self.dirname_pattern, 'profile') or
+				# 		 format_string_contains_key(self.dirname_pattern, 'target'))):
+				# 		os.rename(self.dirname_pattern.format(profile=profile_name.lower(),
+				# 											  target=profile_name.lower()),
+				# 				  self.dirname_pattern.format(profile=newname.lower(),
+				# 											  target=newname.lower()))
+				# 	else:
+				# 		os.rename('{0}/{1}_id'.format(self.dirname_pattern.format(), profile_name.lower()),
+				# 				  '{0}/{1}_id'.format(self.dirname_pattern.format(), newname.lower()))
+				# else:
+				# 	latest_stamps.rename_profile(profile_name, newname)
 				return profile_from_id
 			# profile exists and profile id matches saved id
 			return profile
 		if profile is not None:
-			if latest_stamps is None:
-				self.save_profile_id(profile)
-			else:
-				latest_stamps.save_profile_id(profile.username, profile.userid)
+			# if latest_stamps is None:
+			# 	self.save_profile_id(profile)
+			# else:
+			# 	latest_stamps.save_profile_id(profile.username, profile.userid)
 			return profile
 		if profile_name_not_exists_err:
 			raise profile_name_not_exists_err
@@ -1544,6 +1509,7 @@ class Instaloader:
 									  storyitem_filter=storyitem_filter, latest_stamps=latest_stamps)
 
 	def download_profile(self, profile_name: Union[str, Profile],
+						 txt_list: List,
 						 max_count: Optional[int] = None,
 						 profile_pic: bool = False, profile_pic_only: bool = False,
 						 fast_update: bool = False,
@@ -1551,6 +1517,10 @@ class Instaloader:
 						 download_tagged: bool = False, download_tagged_only: bool = False,
 						 post_filter: Optional[Callable[[Post], bool]] = None,
 						 storyitem_filter: Optional[Callable[[StoryItem], bool]] = None) -> None:
+
+		# txt_list 초기화
+		# txt_list = []
+		# print("txt_list 1 -> ",txt_list)
 
 		"""Download one profile
 
@@ -1561,6 +1531,7 @@ class Instaloader:
 		# Get profile main page json
 		# check if profile does exist or name has changed since last download
 		# and update name and json data if necessary
+
 		if isinstance(profile_name, str):
 			profile = self.check_profile_id(profile_name.lower())
 		else:
@@ -1568,11 +1539,12 @@ class Instaloader:
 
 		profile_name = profile.username
 
-		##### Save metadata as JSON if desired.
+		# !!! 수정
+		# Save metadata as JSON if desired.
 		# if self.save_metadata is not False:
 		#     json_filename = '{0}/{1}_{2}'.format(self.dirname_pattern.format(profile=profile_name, target=profile_name),
 		#                                          profile_name, profile.userid)
-		# self.save_metadata_json(json_filename, profile)
+		#     self.save_metadata_json(json_filename, profile)
 
 		if self.context.is_logged_in and profile.has_blocked_viewer and not profile.is_private:
 			# raising ProfileNotExistsException invokes "trying again anonymously" logic
@@ -1581,7 +1553,6 @@ class Instaloader:
 		# Download profile picture
 		if profile_pic or profile_pic_only:
 			with self.context.error_catcher('Download profile picture of {}'.format(profile_name)):
-				return
 				self.download_profilepic(profile)
 		if profile_pic_only:
 			return
@@ -1617,9 +1588,12 @@ class Instaloader:
 
 		# Iterate over pictures and download them
 		self.context.log("Retrieving posts from profile {}.".format(profile_name))
+
 		self.posts_download_loop(profile.get_posts(), profile_name, fast_update, post_filter,
-								 total_count=profile.mediacount, owner_profile=profile, max_count=max_count)
-		return txt_list
+								 total_count=profile.mediacount, owner_profile=profile, max_count=max_count,
+								 txt_list=txt_list)
+
+	# print("\n download_profile txt_list2: ", txt_list)
 
 	def interactive_login(self, username: str) -> None:
 		"""Logs in and internally stores session, asking user for password interactively.
