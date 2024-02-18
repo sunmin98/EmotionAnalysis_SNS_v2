@@ -16,7 +16,7 @@ from tensorflow.keras.models import load_model
 
 # CSV 파일을 읽어 데이터프레임 생성, 열 이름 설정, 데이터프레임의 길이 출력, 데이터프레임의 처음 몇 행 출력
 
-df = pd.read_csv("Json_PreProcessing/CSV_DATA/merged_file.csv", sep="\t", header=None, encoding="utf-8-sig")
+df = pd.read_csv("Json_PreProcessing/shuffled_file.csv", sep="\t", header=None, encoding="utf-8-sig")
 df.columns = ['reviews', 'label']
 print(len(df))
 df.head()
@@ -114,7 +114,7 @@ X_train = pad_sequences(X_train, maxlen=max_len)
 X_test = pad_sequences(X_test, maxlen=max_len)
 
 #모델 로딩 및 평가
-loaded_model = load_model('activity_distinction.h5')
+loaded_model = load_model('activity_distinction_2.h5')
 print('테스트 정확도 : %.4f' % (loaded_model.evaluate(X_test, Y_test)[1]))
 
 
